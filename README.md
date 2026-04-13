@@ -1,0 +1,2 @@
+# pixpoker-segmentos
+segmentos pixpoker
