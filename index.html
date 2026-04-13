@@ -205,6 +205,14 @@ tr:hover td{background:rgba(255,255,255,.015)}
       </div>
     </div>
 
+    <div class="fb">
+      <label class="fl">Profit / Loss (R$)</label>
+      <div class="r2">
+        <div><span class="rl">Mínimo</span><input type="number" id="f-plmin" placeholder="-∞"/></div>
+        <div><span class="rl">Máximo</span><input type="number" id="f-plmax" placeholder="∞"/></div>
+      </div>
+    </div>
+
     <div class="divider"></div>
     <div class="sb-title">⚡ Inatividade</div>
 
@@ -214,6 +222,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <label class="sc" id="sc-15d"><input type="checkbox" id="f-15d"/><span class="cl">🟠 15–30 dias</span><span class="cn" id="cnt-15d">–</span></label>
     <label class="sc" id="sc-30d"><input type="checkbox" id="f-30d"/><span class="cl">🔴 30+ dias</span><span class="cn" id="cnt-30d">–</span></label>
     <label class="sc" id="sc-sem"><input type="checkbox" id="f-sem"/><span class="cl">⚫ Sem histórico</span><span class="cn" id="cnt-sem">–</span></label>
+
+    <label class="sc" id="sc-pl-pos"><input type="checkbox" id="f-pl-pos"/><span class="cl">📈 Profit positivo</span><span class="cn" id="cnt-pl-pos">–</span></label>
+    <label class="sc" id="sc-pl-neg"><input type="checkbox" id="f-pl-neg"/><span class="cl">📉 Profit negativo</span><span class="cn" id="cnt-pl-neg">–</span></label>
 
     <div class="divider"></div>
     <div class="sb-title">👤 Cadastro</div>
@@ -339,8 +350,9 @@ const FIELDS = [
   {k:'nlh_total',   lbl:'NLH'},
   {k:'mtt_total',   lbl:'MTT'},
   {k:'plo6_total',  lbl:'PLO6'},
+  {k:'profit_loss', lbl:'Profit/Loss'},
 ];
-let activeF = new Set(['id','nick','nome','email','telefone','jogo_fav','inatividade_label','rake_total','rake_avg']);
+let activeF = new Set(['id','nick','nome','email','telefone','jogo_fav','inatividade_label','rake_total','rake_avg','profit_loss']);
 
 // ══════════════════════════════════════════════
 //  TAB
@@ -354,8 +366,8 @@ function switchTab(id) {
 //  AUTO-LOAD FROM GITHUB REPO
 // ══════════════════════════════════════════════
 // CONFIGURE THESE:
-const GITHUB_USER = 'raul-pipeline';
-const GITHUB_REPO = 'pixpoker-segmentos';
+const GITHUB_USER = 'SEU-USUARIO';
+const GITHUB_REPO = 'SEU-REPOSITORIO';
 const GITHUB_BRANCH = 'main';
 const DATA_FOLDER = 'data';
 
@@ -489,19 +501,21 @@ function parseWeekCSV(name, text) {
   for (let i=1;i<lines.length;i++) {
     const c = parseCSVLine(lines[i],sep);
     if (c.length < 4) continue;
-    let id, nick, agente, nlh, mtt, plo6, total;
+    let id, nick, agente, nlh, mtt, plo6, total, pl=0;
     if (colCount >= 12) {
       // Data,ID,Apelido,Agente,NLH_val,MTT_val,PLO6_val,Total,NLH%,MTT%,PLO6%,Jogo_Fav
       id=c[1].trim(); nick=c[2].trim(); agente=c[3].trim();
       nlh=parseBR(c[4]); mtt=parseBR(c[5]); plo6=parseBR(c[6]);
       total=parseBRLstr(c[7])||nlh+mtt+plo6;
+      pl=parseBR(c[12]||'0');
     } else {
       id=c[0].trim(); nick=(c[1]||'').trim(); agente=(c[2]||'').trim();
       nlh=parseBR(c[3]||'0'); mtt=parseBR(c[4]||'0'); plo6=parseBR(c[5]||'0');
       total=nlh+mtt+plo6;
+      pl=parseBR(c[6]||'0');
     }
     if (!id) continue;
-    rows.push({id,nick,agente,nlh,mtt,plo6,total});
+    rows.push({id,nick,agente,nlh,mtt,plo6,total,pl});
   }
   weeks.push({name,rows});
 }
@@ -528,17 +542,18 @@ function processData() {
         players[r.id] = {
           id:r.id, nick:r.nick, nome:'', email:'', telefone:'',
           agente:r.agente,
-          nlh_total:0, mtt_total:0, plo6_total:0, rake_total:0,
+          nlh_total:0, mtt_total:0, plo6_total:0, rake_total:0, profit_loss:0,
         };
         weeklyActive[r.id] = new Set();
       }
       const p = players[r.id];
       if (r.nick && !p.nick) p.nick = r.nick;
       if (r.agente && !p.agente) p.agente = r.agente;
-      p.nlh_total  += r.nlh;
-      p.mtt_total  += r.mtt;
-      p.plo6_total += r.plo6;
-      p.rake_total += r.total;
+      p.nlh_total    += r.nlh;
+      p.mtt_total    += r.mtt;
+      p.plo6_total   += r.plo6;
+      p.rake_total   += r.total;
+      p.profit_loss  += (r.pl||0);
       if (r.total > 0) weeklyActive[r.id].add(wi);
     });
   });
@@ -574,6 +589,7 @@ function processData() {
     p.nlh_total         = round2(p.nlh_total);
     p.mtt_total         = round2(p.mtt_total);
     p.plo6_total        = round2(p.plo6_total);
+    p.profit_loss       = round2(p.profit_loss);
     p.rake_avg          = rake_avg;
     p.jogo_fav          = jogo_fav;
     p.inatividade       = inatividade;
@@ -649,7 +665,10 @@ function bindFilters() {
   ['f-search','f-jogo','f-rmin','f-rmax','f-ravgmin','f-ravgmax'].forEach(id=>{
     document.getElementById(id).addEventListener('input',()=>{page=1;applyFilters();});
   });
-  ['f-ativo','f-1s','f-2s','f-15d','f-30d','f-sem','f-tel','f-notel'].forEach(id=>{
+  ['f-plmin','f-plmax'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{page=1;applyFilters();});
+  });
+  ['f-ativo','f-1s','f-2s','f-15d','f-30d','f-sem','f-tel','f-notel','f-pl-pos','f-pl-neg'].forEach(id=>{
     document.getElementById(id).addEventListener('change',e=>{
       page=1;
       const scId='sc-'+id.replace('f-','');
@@ -675,6 +694,10 @@ function applyFilters() {
   const fSem    = document.getElementById('f-sem').checked;
   const fTel    = document.getElementById('f-tel').checked;
   const fNoTel  = document.getElementById('f-notel').checked;
+  const plMin   = document.getElementById('f-plmin').value !== '' ? parseFloat(document.getElementById('f-plmin').value) : -Infinity;
+  const plMax   = document.getElementById('f-plmax').value !== '' ? parseFloat(document.getElementById('f-plmax').value) : Infinity;
+  const fPlPos  = document.getElementById('f-pl-pos').checked;
+  const fPlNeg  = document.getElementById('f-pl-neg').checked;
 
   // Active inatividade filters
   const inatFilters = [fAtivo&&'ativo',f1s&&'s1',f2s&&'s2',f15d&&'d15',f30d&&'d30',fSem&&'sem'].filter(Boolean);
@@ -688,6 +711,9 @@ function applyFilters() {
     if (hasInat && !inatFilters.includes(p.inatividade)) return false;
     if (fTel && !p.tem_telefone) return false;
     if (fNoTel && p.tem_telefone) return false;
+    if (p.profit_loss < plMin || p.profit_loss > plMax) return false;
+    if (fPlPos && p.profit_loss <= 0) return false;
+    if (fPlNeg && p.profit_loss >= 0) return false;
     return true;
   });
 
@@ -704,8 +730,10 @@ function updateCounts() {
   document.getElementById('cnt-15d').textContent    = fmt(cnt('d15'));
   document.getElementById('cnt-30d').textContent    = fmt(cnt('d30'));
   document.getElementById('cnt-sem').textContent    = fmt(cnt('sem'));
-  document.getElementById('cnt-tel').textContent    = fmt(all.filter(p=>p.tem_telefone).length);
-  document.getElementById('cnt-notel').textContent  = fmt(all.filter(p=>!p.tem_telefone).length);
+  document.getElementById('cnt-tel').textContent     = fmt(all.filter(p=>p.tem_telefone).length);
+  document.getElementById('cnt-notel').textContent   = fmt(all.filter(p=>!p.tem_telefone).length);
+  document.getElementById('cnt-pl-pos').textContent  = fmt(all.filter(p=>p.profit_loss>0).length);
+  document.getElementById('cnt-pl-neg').textContent  = fmt(all.filter(p=>p.profit_loss<0).length);
 }
 
 function updateKPIs() {
@@ -755,6 +783,12 @@ function renderTable() {
       switch(f.k) {
         case 'rake_total': case 'rake_avg': case 'nlh_total': case 'mtt_total': case 'plo6_total':
           return p[f.k]>0 ? `<td class="rv">R$ ${fmtN(p[f.k])}</td>` : `<td class="rz">–</td>`;
+        case 'profit_loss': {
+          if (p.profit_loss===0) return `<td class="rz">–</td>`;
+          const plCls = p.profit_loss>0 ? 'style="color:var(--green)"' : 'style="color:var(--red)"';
+          const plSign = p.profit_loss>0 ? '+' : '';
+          return `<td ${plCls}><b>${plSign}R$ ${fmtN(p.profit_loss)}</b></td>`;
+        }
         case 'jogo_fav': {
           if (!p.jogo_fav) return `<td class="rz">–</td>`;
           const cls=p.jogo_fav==='NLH'?'nlh':p.jogo_fav==='MTT'?'mtt':'plo6';
@@ -800,7 +834,10 @@ function goPage(p2){
 
 function resetFilters(){
   ['f-search','f-jogo','f-rmin','f-rmax','f-ravgmin','f-ravgmax'].forEach(id=>document.getElementById(id).value='');
-  ['f-ativo','f-1s','f-2s','f-15d','f-30d','f-sem','f-tel','f-notel'].forEach(id=>{
+  ['f-plmin','f-plmax'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{page=1;applyFilters();});
+  });
+  ['f-ativo','f-1s','f-2s','f-15d','f-30d','f-sem','f-tel','f-notel','f-pl-pos','f-pl-neg'].forEach(id=>{
     document.getElementById(id).checked=false;
     const sc=document.getElementById('sc-'+id.replace('f-',''));
     if(sc)sc.classList.remove('on');
