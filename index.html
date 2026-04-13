@@ -375,8 +375,8 @@ function sortFiltered() {
   if (!sortKey) return;
   filtered.sort((a, b) => {
     let av = a[sortKey], bv = b[sortKey];
-    if (av === undefined || av === null || av === '') av = sortDir === 1 ? '￿' : -Infinity;
-    if (bv === undefined || bv === null || bv === '') bv = sortDir === 1 ? '￿' : -Infinity;
+    if (av === undefined || av === null || av === '') av = sortDir === 1 ? ' ' : -Infinity;
+    if (bv === undefined || bv === null || bv === '') bv = sortDir === 1 ? ' ' : -Infinity;
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
     return String(av).localeCompare(String(bv), 'pt-BR') * sortDir;
   });
@@ -480,8 +480,8 @@ function checkAuth() {
 //  AUTO-LOAD FROM GITHUB REPO
 // ══════════════════════════════════════════════
 // CONFIGURE THESE:
-const GITHUB_USER = 'SEU-USUARIO';
-const GITHUB_REPO = 'SEU-REPOSITORIO';
+const GITHUB_USER = 'raul-pipeline';
+const GITHUB_REPO = 'pixpoker-segmentos';
 const GITHUB_BRANCH = 'main';
 const DATA_FOLDER = 'data';
 
