@@ -143,6 +143,12 @@ tr:hover td{background:rgba(255,255,255,.015)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 
+/* ── SORT ── */
+th{cursor:pointer;user-select:none;transition:color .15s}
+th:hover{color:var(--text)}
+th.sort-asc::after{content:' ↑';color:var(--green)}
+th.sort-desc::after{content:' ↓';color:var(--green)}
+
 /* ── LOGIN ── */
 #login-screen{
   position:fixed;inset:0;background:var(--bg);z-index:9999;
@@ -349,6 +355,34 @@ let page = 1;
 const PG = 50;
 
 // ══════════════════════════════════════════════
+//  SORT STATE
+// ══════════════════════════════════════════════
+let sortKey = null;
+let sortDir = 1; // 1 = asc, -1 = desc
+
+function sortBy(key) {
+  if (sortKey === key) {
+    sortDir *= -1;
+  } else {
+    sortKey = key;
+    sortDir = ['rake_total','rake_avg','profit_loss','nlh_total','mtt_total','plo6_total','semanas_ativo'].includes(key) ? -1 : 1;
+  }
+  page = 1;
+  renderTable();
+}
+
+function sortFiltered() {
+  if (!sortKey) return;
+  filtered.sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (av === undefined || av === null || av === '') av = sortDir === 1 ? '￿' : -Infinity;
+    if (bv === undefined || bv === null || bv === '') bv = sortDir === 1 ? '￿' : -Infinity;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
+    return String(av).localeCompare(String(bv), 'pt-BR') * sortDir;
+  });
+}
+
+// ══════════════════════════════════════════════
 //  INATIVIDADE LABELS
 // ══════════════════════════════════════════════
 // Varredura de trás pra frente nas 10 semanas (índice 0 = mais antiga, 9 = mais recente)
@@ -414,7 +448,7 @@ function switchTab(id) {
 //  LOGIN
 // ══════════════════════════════════════════════
 // Altere a senha abaixo:
-const SENHA = '@Pp1509';
+const SENHA = 'pixpoker2026';
 const SESSION_KEY = 'ppok_auth';
 
 function doLogin() {
@@ -446,8 +480,8 @@ function checkAuth() {
 //  AUTO-LOAD FROM GITHUB REPO
 // ══════════════════════════════════════════════
 // CONFIGURE THESE:
-const GITHUB_USER = 'raul-pipeline';
-const GITHUB_REPO = 'pixpoker-segmentos';
+const GITHUB_USER = 'SEU-USUARIO';
+const GITHUB_REPO = 'SEU-REPOSITORIO';
 const GITHUB_BRANCH = 'main';
 const DATA_FOLDER = 'data';
 
@@ -856,7 +890,11 @@ function renderTable() {
   }
   tno.style.display='none'; tbl.style.display='table';
   const af = FIELDS.filter(f=>activeF.has(f.k));
-  document.getElementById('tbl-head').innerHTML='<tr>'+af.map(f=>`<th>${f.lbl}</th>`).join('')+'</tr>';
+  sortFiltered();
+  document.getElementById('tbl-head').innerHTML='<tr>'+af.map(f=>{
+    const cls = sortKey===f.k ? (sortDir===1?'sort-asc':'sort-desc') : '';
+    return `<th class="${cls}" onclick="sortBy('${f.k}')">${f.lbl}</th>`;
+  }).join('')+'</tr>';
   const start=(page-1)*PG;
   document.getElementById('tbl-body').innerHTML = filtered.slice(start,start+PG).map(p => {
     const cells = af.map(f => {
@@ -922,6 +960,7 @@ function resetFilters(){
     const sc=document.getElementById('sc-'+id.replace('f-',''));
     if(sc)sc.classList.remove('on');
   });
+  sortKey=null; sortDir=1;
   page=1; applyFilters();
 }
 
