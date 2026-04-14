@@ -130,13 +130,37 @@ tr:hover td{background:rgba(255,255,255,.015)}
 /* WEEKS PANEL */
 #panel-weeks{flex-direction:column;overflow:hidden;padding:24px;gap:18px}
 .wk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:13px;overflow-y:auto;flex:1}
-.wkcard{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.wkcard{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative}
 .wkcard-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:10px}
 .wkcard-title .seq{font-size:11px;background:rgba(0,240,160,.1);color:var(--green);border-radius:4px;padding:2px 7px}
 .wkcard-title .seq.old{background:rgba(255,64,96,.1);color:var(--red)}
 .wkstat{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
 .wkstat:last-child{border-bottom:none}
 .wksk{font-size:12px;color:var(--muted2)}.wksv{font-family:'Space Mono',monospace;font-size:12px}
+.wk-chart-btn{position:absolute;top:14px;right:14px;background:rgba(0,240,160,.1);border:1px solid rgba(0,240,160,.2);color:var(--green);border-radius:7px;padding:4px 9px;font-size:14px;cursor:pointer;transition:all .15s;line-height:1}
+.wk-chart-btn:hover{background:rgba(0,240,160,.2)}
+.wkcard.hist{border-color:var(--purple);opacity:.85}
+.wkcard.hist .wkcard-title{color:var(--purple)}
+.wkcard.hist .wk-chart-btn{display:none}
+
+/* weeks topbar */
+.weeks-topbar{display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;gap:20px}
+.hist-selector{display:flex;flex-direction:column;gap:6px;min-width:280px}
+.hist-selector select{background:var(--s3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;font-family:'Outfit',sans-serif;outline:none}
+.hist-selector select:focus{border-color:var(--purple)}
+
+/* MODAL */
+#chart-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;align-items:center;justify-content:center}
+#chart-modal.open{display:flex}
+.modal-box{background:var(--s2);border:1px solid var(--border);border-radius:16px;width:min(820px,95vw);padding:28px;display:flex;flex-direction:column;gap:18px}
+.modal-header{display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--green)}
+.modal-close{color:var(--muted2);cursor:pointer;font-size:20px;padding:4px 8px;border-radius:6px;transition:all .15s}
+.modal-close:hover{color:var(--red);background:rgba(255,64,96,.1)}
+.chart-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.ctab{padding:6px 16px;border-radius:7px;border:1px solid var(--border);background:var(--s3);color:var(--muted2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'Outfit',sans-serif}
+.ctab:hover{color:var(--text)}.ctab.active{background:rgba(0,240,160,.1);border-color:var(--green);color:var(--green)}
+.chart-area{height:300px;position:relative}
 
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--s1)}
@@ -315,12 +339,40 @@ th.sort-desc::after{content:' ↓';color:var(--green)}
 
 <!-- ══ SEMANAS ══ -->
 <div class="panel" id="panel-weeks">
-  <div style="flex-shrink:0">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--green)">SEMANAS CARREGADAS</div>
-    <div style="color:var(--muted2);font-size:13px;margin-top:4px">Janela deslizante · máx 10 semanas · ordenadas por nome do arquivo</div>
+  <div class="weeks-topbar">
+    <div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--green)">SEMANAS CARREGADAS</div>
+      <div style="color:var(--muted2);font-size:13px;margin-top:2px">Janela deslizante · máx 10 semanas ativas · ordenadas por nome</div>
+    </div>
+    <div class="hist-selector" id="hist-selector" style="display:none">
+      <label style="font-size:12px;color:var(--muted2);font-weight:500">📁 Histórico</label>
+      <select id="hist-select" onchange="loadHistoricoWeek(this.value)">
+        <option value="">Selecione uma semana antiga...</option>
+      </select>
+    </div>
   </div>
   <div class="wk-grid" id="wk-grid">
     <div class="nodata"><div class="ni">📅</div><div class="nt">Nenhuma semana</div></div>
+  </div>
+</div>
+
+<!-- ══ MODAL GRÁFICO ══ -->
+<div id="chart-modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Evolução da Semana</div>
+      <div class="modal-close" onclick="document.getElementById('chart-modal').style.display='none'">✕</div>
+    </div>
+    <div class="chart-tabs">
+      <button class="ctab active" onclick="showChart('rake','total',this)">Rake Total</button>
+      <button class="ctab" onclick="showChart('rake','nlh',this)">NLH</button>
+      <button class="ctab" onclick="showChart('rake','mtt',this)">MTT</button>
+      <button class="ctab" onclick="showChart('rake','plo6',this)">PLO6</button>
+      <button class="ctab" onclick="showChart('players','',this)">Jogadores</button>
+    </div>
+    <div class="chart-area">
+      <canvas id="main-chart"></canvas>
+    </div>
   </div>
 </div>
 
@@ -341,6 +393,7 @@ th.sort-desc::after{content:' ↓';color:var(--green)}
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ══════════════════════════════════════════════
@@ -348,6 +401,7 @@ th.sort-desc::after{content:' ↓';color:var(--green)}
 // ══════════════════════════════════════════════
 const MAX_WEEKS = 10;
 let weeks   = [];    // [{name, rows:[{id,nick,agente,nlh,mtt,plo6,total}]}] — ordenadas, max 10
+let historico = []; // semanas antigas da pasta data/historico/
 let jogadores = new Map(); // id -> {nome, email, telefone}
 let players = {};    // id -> full profile
 let filtered = [];
@@ -488,6 +542,9 @@ const DATA_FOLDER = 'data';
 function rawURL(filename) {
   return `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${DATA_FOLDER}/${filename}`;
 }
+function rawURLHist(filename) {
+  return `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${DATA_FOLDER}/historico/${filename}`;
+}
 function apiURL() {
   return `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FOLDER}?ref=${GITHUB_BRANCH}`;
 }
@@ -561,6 +618,15 @@ async function autoLoad() {
     showError('Nenhum arquivo de rake encontrado na pasta <b>/data/</b> do repositório.<br>Suba pelo menos um CSV de rake para continuar.');
     return;
   }
+
+  // 4. Load historico folder (list only, lazy load on demand)
+  try {
+    const hRes = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FOLDER}/historico?ref=${GITHUB_BRANCH}`);
+    if (hRes.ok) {
+      const hFiles = await hRes.json();
+      historico = hFiles.filter(f=>f.name.endsWith('.csv')).sort((a,b)=>a.name.localeCompare(b.name));
+    }
+  } catch(e) { /* historico optional */ }
 
   // Done — process
   await new Promise(r => setTimeout(r, 400));
@@ -723,33 +789,109 @@ function processData() {
 // ══════════════════════════════════════════════
 //  WEEKS PANEL
 // ══════════════════════════════════════════════
+function wkCardHTML(w, seq, isOld, isHist=false) {
+  const totalRake = w.rows.reduce((a,r)=>a+r.total,0);
+  const nlhSum  = w.rows.reduce((a,r)=>a+r.nlh,0);
+  const mttSum  = w.rows.reduce((a,r)=>a+r.mtt,0);
+  const plo6Sum = w.rows.reduce((a,r)=>a+r.plo6,0);
+  const seqLabel = isHist ? 'histórico' : isOld ? 'próx. a sair' : 'ativa';
+  const seqCls   = isHist ? 'style="background:rgba(162,89,255,.1);color:var(--purple)"' : isOld ? 'class="seq old"' : 'class="seq"';
+  return `
+    ${!isHist ? `<button class="wk-chart-btn" onclick="openChart(${seq-1})" title="Ver gráfico">📈</button>` : ''}
+    <div class="wkcard-title">
+      📅 ${isHist?'Hist.':'Sem.'} ${seq}
+      <span ${seqCls}>${seqLabel}</span>
+    </div>
+    <div class="wkstat"><span class="wksk">Arquivo</span><span class="wksv" style="font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis">${w.name}</span></div>
+    <div class="wkstat"><span class="wksk">Jogadores</span><span class="wksv">${fmt(w.rows.length)}</span></div>
+    <div class="wkstat"><span class="wksk">Rake total</span><span class="wksv" style="color:var(--green)">R$ ${fmtN(totalRake)}</span></div>
+    <div class="wkstat"><span class="wksk">NLH</span><span class="wksv">R$ ${fmtN(nlhSum)}</span></div>
+    <div class="wkstat"><span class="wksk">MTT</span><span class="wksv">R$ ${fmtN(mttSum)}</span></div>
+    <div class="wkstat"><span class="wksk">PLO6</span><span class="wksv">R$ ${fmtN(plo6Sum)}</span></div>
+  `;
+}
+
 function buildWeeksPanel() {
   const grid = document.getElementById('wk-grid');
   grid.innerHTML = '';
   const totalWeeks = weeks.length;
   weeks.forEach((w,i) => {
     const isOld = totalWeeks===MAX_WEEKS && i===0;
-    const seq = i+1;
-    const totalRake = w.rows.reduce((a,r)=>a+r.total,0);
-    const nlhSum = w.rows.reduce((a,r)=>a+r.nlh,0);
-    const mttSum = w.rows.reduce((a,r)=>a+r.mtt,0);
-    const plo6Sum= w.rows.reduce((a,r)=>a+r.plo6,0);
     const div = document.createElement('div');
-    div.className='wkcard';
-    div.innerHTML=`
-      <div class="wkcard-title">
-        📅 Sem. ${seq}
-        <span class="seq${isOld?' old':''}">${isOld?'próx. a sair':'ativa'}</span>
-      </div>
-      <div class="wkstat"><span class="wksk">Arquivo</span><span class="wksv" style="font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis">${w.name}</span></div>
-      <div class="wkstat"><span class="wksk">Jogadores</span><span class="wksv">${fmt(w.rows.length)}</span></div>
-      <div class="wkstat"><span class="wksk">Rake total</span><span class="wksv" style="color:var(--green)">R$ ${fmtN(totalRake)}</span></div>
-      <div class="wkstat"><span class="wksk">NLH</span><span class="wksv">R$ ${fmtN(nlhSum)}</span></div>
-      <div class="wkstat"><span class="wksk">MTT</span><span class="wksv">R$ ${fmtN(mttSum)}</span></div>
-      <div class="wkstat"><span class="wksk">PLO6</span><span class="wksv">R$ ${fmtN(plo6Sum)}</span></div>
-    `;
+    div.className = 'wkcard';
+    div.innerHTML = wkCardHTML(w, i+1, isOld, false);
     grid.appendChild(div);
   });
+
+  // Populate historico dropdown
+  const sel = document.getElementById('hist-select');
+  const hs  = document.getElementById('hist-selector');
+  sel.innerHTML = '<option value="">Selecione uma semana antiga...</option>';
+  if (historico.length > 0) {
+    hs.style.display = 'flex';
+    historico.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.name; opt.textContent = f.name.replace('.csv','');
+      sel.appendChild(opt);
+    });
+  } else {
+    hs.style.display = 'none';
+  }
+}
+
+// ── HISTORICO LAZY LOAD ──
+let histCache = {};
+async function loadHistoricoWeek(fname) {
+  if (!fname) {
+    // remove hist card if any
+    document.getElementById('wk-grid').querySelectorAll('.hist').forEach(e=>e.remove());
+    return;
+  }
+  // remove previous hist card
+  document.getElementById('wk-grid').querySelectorAll('.hist').forEach(e=>e.remove());
+
+  // show loading card
+  const grid = document.getElementById('wk-grid');
+  const loading = document.createElement('div');
+  loading.className = 'wkcard hist';
+  loading.innerHTML = `<div class="wkcard-title">⏳ Carregando...</div>`;
+  grid.appendChild(loading);
+
+  if (!histCache[fname]) {
+    try {
+      const text = await fetchText(rawURLHist(fname));
+      // parse as week but don't add to weeks array
+      const lines = text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+      const sep = lines[0].includes(';')?';':',';
+      const rawH = lines[0].split(sep);
+      const colCount = rawH.length;
+      const rows = [];
+      for (let i=1;i<lines.length;i++) {
+        const c = parseCSVLine(lines[i],sep);
+        if (c.length<4) continue;
+        let id,nick,agente,nlh,mtt,plo6,total,pl=0;
+        if (colCount>=12) {
+          id=c[1].trim();nick=c[2].trim();agente=c[3].trim();
+          nlh=parseBR(c[4]);mtt=parseBR(c[5]);plo6=parseBR(c[6]);
+          total=parseBRLstr(c[7])||nlh+mtt+plo6;
+          pl=parseBR(c[12]||'0');
+        } else {
+          id=c[0].trim();nick=(c[1]||'').trim();agente=(c[2]||'').trim();
+          nlh=parseBR(c[3]||'0');mtt=parseBR(c[4]||'0');plo6=parseBR(c[5]||'0');
+          total=nlh+mtt+plo6;
+        }
+        if (!id) continue;
+        rows.push({id,nick,agente,nlh,mtt,plo6,total,pl});
+      }
+      histCache[fname] = {name:fname, rows};
+    } catch(e) {
+      loading.innerHTML = `<div class="wkcard-title" style="color:var(--red)">❌ Erro ao carregar</div>`;
+      return;
+    }
+  }
+
+  const hw = histCache[fname];
+  loading.innerHTML = wkCardHTML(hw, '–', false, true);
 }
 
 // ══════════════════════════════════════════════
@@ -989,6 +1131,100 @@ function exportXL(){
   const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
   XLSX.utils.book_append_sheet(wb,ws,'Segmento');
   XLSX.writeFile(wb,'segmento_pixpoker.xlsx');
+}
+
+// ══════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════
+let chartInstance = null;
+let currentChartType = 'rake';
+let currentChartSub  = 'total';
+
+function openChart(weekIdx) {
+  const w = weeks[weekIdx];
+  document.getElementById('modal-title').textContent = `📈 Evolução — ${w?.name||''}`;
+  document.getElementById('chart-modal').classList.add('open');
+  // reset tabs
+  document.querySelectorAll('.ctab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  showChart('rake','total', document.querySelector('.ctab'));
+}
+
+function closeModal(e) {
+  if (e.target.id==='chart-modal') document.getElementById('chart-modal').classList.remove('open');
+}
+
+function showChart(type, sub, btn) {
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  currentChartType = type;
+  currentChartSub  = sub;
+  renderChart();
+}
+
+function renderChart() {
+  const labels = weeks.map((_,i)=>`Sem. ${i+1}`);
+  let data, label, color;
+
+  if (currentChartType==='players') {
+    data  = weeks.map(w=>w.rows.length);
+    label = 'Jogadores ativos';
+    color = '#3d7fff';
+  } else {
+    const key = currentChartSub==='total'?'total':currentChartSub==='nlh'?'nlh':currentChartSub==='mtt'?'mtt':'plo6';
+    data  = weeks.map(w=>round2(w.rows.reduce((a,r)=>a+r[key],0)));
+    label = currentChartSub==='total'?'Rake Total':currentChartSub.toUpperCase();
+    color = currentChartSub==='total'?'#00f0a0':currentChartSub==='nlh'?'#3d7fff':currentChartSub==='mtt'?'#ff8c42':'#00f0a0';
+  }
+
+  const ctx = document.getElementById('main-chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        borderColor: color,
+        backgroundColor: color+'22',
+        borderWidth: 2,
+        pointBackgroundColor: color,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#dde3f0', font: { family: 'Outfit', size: 13 } } },
+        tooltip: {
+          backgroundColor: '#111625',
+          borderColor: '#1e2640',
+          borderWidth: 1,
+          titleColor: '#dde3f0',
+          bodyColor: '#8492b0',
+          callbacks: {
+            label: ctx => currentChartType==='players'
+              ? ` ${ctx.parsed.y.toLocaleString('pt-BR')} jogadores`
+              : ` R$ ${ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks:{color:'#5a6585'}, grid:{color:'#1e2640'} },
+        y: {
+          ticks: {
+            color:'#5a6585',
+            callback: v => currentChartType==='players' ? v.toLocaleString('pt-BR') : 'R$ '+v.toLocaleString('pt-BR')
+          },
+          grid:{color:'#1e2640'}
+        }
+      }
+    }
+  });
 }
 
 // ══════════════════════════════════════════════
